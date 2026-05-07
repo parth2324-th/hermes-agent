@@ -21,6 +21,7 @@
 - **Partially covered**
 - Registry dispatch and tool handler architecture covered in `agents.md` and `mcp.md`
 - MCP outbounds fully covered in `mcp.md` (init, lifecycle, circuit breaker, auth recovery, dynamic refresh, sampling)
+- Delegation fully covered in `delegation.md` — toolset, schema, child construction, toolset resolution, credential pool, TLS approval callback, heartbeat, timeout, file-state reminder, result assembly, cost rollup
 - Guardrails (path restrictions, output filtering, approval gates) **not covered**
 
 ## Model — LLM call
@@ -42,8 +43,8 @@
 - **Partially covered**
 - `delegate_task` fully covered in `delegation.md` — toolset, schema, top-level flow, `_build_child_agent`, `_run_single_child`, heartbeat, timeout, result assembly
 - `model_tools.py` covered in `delegation.md` and `agents.md` — `get_tool_definitions`, `handle_function_call`, `_run_async`, `_last_resolved_tool_names`
-- Individual tool implementations (bash, filesystem, web_search, etc.) not explored
-- Cron jobs and scheduled tasks not covered
+- Cron jobs fully covered in `cron.md` — data model, ticker, missed-fire grace logic, at-most-once semantics, agent construction, delivery resolution, safety
+- Individual tool implementations (bash, web_search, code_execution, etc.) not explored
 
 ## Proactive Read arrow — memory prefetch
 - **Covered** in `providers.md`
@@ -54,4 +55,11 @@
 - **Partially covered**
 - `_invoke_tool()` dispatch path covered in `agents.md`
 - MCP tool call path fully covered in `mcp.md`
-- Individual built-in tool implementations (bash, edit, web) **not covered**
+- File tools (`read_file`, `write_file`, `patch`, `search_files`) covered in `inbuilt_tools.md`
+- Skills tools (`skills_list`, `skill_view`, `skill_manage`) covered in `inbuilt_tools.md`
+- Memory tool (`add`, `replace`, `remove`, snapshot vs live state, injection guards) covered in `inbuilt_tools.md`
+- Web tools (`web_search`, `web_extract`, backend dispatch, LLM post-processing, SSRF guards) covered in `inbuilt_tools.md`
+- Terminal tool (backend routing, approval gate, CWD tracking, output limits, background processes) covered in `inbuilt_tools.md`
+- Code execution tool (UDS vs file-based RPC, sandbox tool allowlist, env scrubbing, execution modes) covered in `inbuilt_tools.md`
+- Clarify tool (callback dispatch, two modes, subagent guard) covered in `inbuilt_tools.md`
+- `messaging` tool **not covered**

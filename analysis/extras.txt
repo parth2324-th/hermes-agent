@@ -1,0 +1,15 @@
+Not covered:
+
+- cli.py / TUI — prompt_toolkit app, key bindings, rendering
+- plugins/ — plugin lifecycle, hooks, registration in depth
+- acp_adapter/ + acp_registry/ — ACP cross-agent protocol
+- hermes_state.py — state management
+- tui_gateway/ — TUI-based gateway server
+- web/ + website/ — web UI
+- agent/curator.py — skill maintenance, pruning, pinning
+- toolsets.py — full toolset registry
+- hermes_cli/ — setup, update, profiles, hub commands
+- messaging tool
+- provider selection — OpenRouter fallback chains, model resolution
+- batch_runner.py + trajectory_compressor.py — eval and training data tooling
+- mini_swe_runner.py + rl_cli.py — SWE benchmark, RL training CLI

@@ -190,9 +190,39 @@ _child_future = _timeout_executor.submit(_run_with_thread_capture)
 result = _child_future.result(timeout=child_timeout)   # blocks here
 ```
 
-`_run_with_thread_capture` captures `threading.current_thread()` into `_worker_thread_holder` before calling `child.run_conversation(user_message=goal, task_id=child_task_id)`.
+`_run_with_thread_capture` is a closure defined inside `_run_single_child` that captures `threading.current_thread()` before calling `run_conversation`, so the timeout path can dump the worker thread's stack:
 
-The `initializer` installs either `_subagent_auto_deny` or `_subagent_auto_approve` in the worker thread's `threading.local` — without this, a dangerous command prompt inside the child would call `input()` and deadlock the parent TUI.
+```python
+_worker_thread_holder: Dict[str, Optional[threading.Thread]] = {"t": None}
+
+def _run_with_thread_capture():
+    _worker_thread_holder["t"] = threading.current_thread()
+    return child.run_conversation(user_message=goal, task_id=child_task_id)
+```
+
+`_worker_thread_holder` is a single-element dict rather than a plain variable because assignment inside a closure creates a new local scope — `_worker_thread_holder = thread` would not write back to the outer variable. Mutating a dict (`["t"] = ...`) modifies the existing object so no `nonlocal` needed. The equivalent with `nonlocal` would be:
+
+```python
+_worker_thread: Optional[threading.Thread] = None
+
+def _run_with_thread_capture():
+    nonlocal _worker_thread
+    _worker_thread = threading.current_thread()
+    return child.run_conversation(user_message=goal, task_id=child_task_id)
+```
+
+The `initializer` installs either `_subagent_auto_deny` or `_subagent_auto_approve` into the worker thread's TLS (Thread Local Storage) via `set_approval_callback` in `terminal_tool.py`. TLS is a `threading.local()` object — a single module-level variable where each thread gets its own independent attribute namespace under the hood (keyed by thread ID). Without per-thread storage, a subagent writing `_subagent_auto_deny` to a plain module variable would overwrite the main thread's interactive callback, silently denying dangerous commands in the parent session too.
+
+When the child runs a dangerous command, `approval.py` calls `_get_approval_callback()` which reads from TLS:
+
+```python
+_callback_tls = threading.local()
+
+def _get_approval_callback():
+    return getattr(_callback_tls, "approval", None)
+```
+
+ If a callback is installed it is called immediately — `"deny"` or `"once"` returned, `input()` never reached. If no callback is installed and prompt_toolkit owns the terminal, it also denies fast (deadlock guard — `input()` on a thread that doesn't own stdin blocks forever against prompt_toolkit).
 
 ### Timeout handling
 
@@ -217,6 +247,6 @@ On success, `child.run_conversation()` returns a dict with `final_response`, `co
 
 **Exit reason**: `"completed"` | `"max_iterations"` | `"interrupted"`
 
-**File-state reminder**: checks `file_state.writes_since()` for any writes by non-parent task IDs to files the parent had previously read — if found, appends a `[NOTE: subagent modified files ...]` reminder to `entry["summary"]` so the parent re-reads before editing.
+**File-state reminder**: `file_state` is a process-level registry tracking `_reads` (per task_id) and `_last_writer` (per path). `wall_start = time.time()` is captured right before `run_conversation` starts. After the child finishes, `writes_since(exclude_task_id=parent_task_id, since_ts=wall_start, paths=parent_reads_snapshot)` walks `_last_writer` for any paths the parent had read that were written after `wall_start` by a non-parent task. Timestamp is the differentiator — no copy of state is taken upfront. If matches found, appends a `[NOTE: subagent modified files ...]` reminder to `entry["summary"]` so the parent re-reads before editing.
 
 **`_child_role` and `_child_cost_usd`** captured into the entry before `child.close()` — they are stripped before the dict is serialised back to the model but used by the post-run hook/cost-rollup loop in `delegate_task()`.

@@ -155,6 +155,69 @@ This means under sustained flood control the user sees partial text in one messa
 
 ---
 
+## Channels
+
+A **channel** is the platform concept for where a message arrives and where responses are delivered. Every inbound event is normalised by the platform adapter into a `SessionSource` — see `sessions.md` for the full `SessionSource` / `SessionContext` / `SessionEntry` data model and session key construction rules. This section covers the platform-specific mapping and channel-level config that live in the gateway.
+
+### Platform → chat_type mapping
+
+Each platform adapter extracts `chat_id` and `chat_type` from its native event and populates `SessionSource`. The gateway's session key logic then uses these fields — see `sessions.md § Session Identity`.
+
+| Platform | Concept | chat_type | chat_id |
+|---|---|---|---|
+| Telegram | Private chat | `dm` | user_id |
+| Telegram | Group/supergroup | `group` | group_id |
+| Telegram | Forum topic | `forum` | group_id (thread_id = topic_id) |
+| Discord | DM | `dm` | user_id |
+| Discord | Channel | `group` | channel_id |
+| Discord | Thread / Forum post | `thread` | thread_id (parent_chat_id = channel_id) |
+| Slack | DM | `dm` | U-prefixed user ID |
+| Slack | Channel | `group` | C-prefixed channel ID |
+| Slack | Thread reply | `group` | channel_id (thread_id = message timestamp) |
+
+Extraction points: `str(interaction.channel_id)` in Discord (`discord.py:3089`), `str(chat.id)` in Telegram (`telegram.py:3597`), `channel_id` from the Slack event payload (`slack.py:2112`).
+
+### Channel prompt
+
+An operator-configured per-channel ephemeral prompt override. Resolved by `resolve_channel_prompt(config.extra, channel_id, parent_id)` (`gateway/platforms/base.py:1121`) and stored on `MessageEvent.channel_prompt`. Discord threads fall back to the parent channel's prompt if no thread-specific one is set.
+
+Configured in `config.yaml` under `channel_prompts: {"channel_id": "prompt text"}` inside the platform block.
+
+### Ephemeral system prompt assembly
+
+`combined_ephemeral` is built in the gateway each turn before the `AIAgent` is constructed or reused (`gateway/run.py:13160`):
+
+```
+combined_ephemeral = context_prompt                     # 1. SessionContext block — platform location, user, home channels
+                   + "\n\n" + channel_prompt            # 2. Per-channel operator override (if set)
+                   + "\n\n" + _ephemeral_system_prompt  # 3. Global ephemeral from config.yaml (if set)
+```
+
+This is passed as `ephemeral_system_prompt` to `AIAgent`. At API-call time the agent builds the effective system prompt (`run_agent.py:10309`):
+
+```
+effective_system = _cached_system_prompt + "\n\n" + ephemeral_system_prompt
+```
+
+`_cached_system_prompt` is frozen at agent construction (the cacheable prefix). `ephemeral_system_prompt` is appended fresh each call so it never breaks the provider's prefix cache. It is also excluded from trajectory persistence — subagent transcripts and session replays only store the base prompt.
+
+### Channel-level config
+
+| Setting | Platform | Effect |
+|---|---|---|
+| `channel_prompts` | All | Per-channel ephemeral system prompt |
+| `channel_skill_bindings` | Discord, Slack | Auto-load skill(s) when the bot is in this channel |
+| `allowed_channels` | Discord | Whitelist — bot only responds in listed channel IDs |
+| `ignored_channels` | Discord | Blacklist — bot never responds here |
+| `free_response_channels` | Discord, Slack | No @mention required to invoke the bot |
+| `no_thread_channels` | Discord | Bot replies directly without spinning up a thread |
+
+### Home channel
+
+The default delivery target for a platform — used by cron jobs and platform-level notifications. Stored as `HomeChannel(platform, chat_id, name, thread_id?)`. Set via `/sethome` in any chat or via env vars (`TELEGRAM_HOME_CHANNEL`, `DISCORD_HOME_CHANNEL`, etc.). Surfaced in the `SessionContext` system prompt block so the agent knows where scheduled output will land.
+
+---
+
 ## What Lives in the Gateway vs the Agent
 
 | Concern | Gateway | AIAgent |
