@@ -13,3 +13,31 @@ Not covered:
 - provider selection — OpenRouter fallback chains, model resolution
 - batch_runner.py + trajectory_compressor.py — eval and training data tooling
 - mini_swe_runner.py + rl_cli.py — SWE benchmark, RL training CLI
+
+
+
+[DONE] Platform — simplest, just adapters; sets the context for everything above
+[TODO] Gateway — entry point; ties platform + sessions + agent together
+[TODO] Sessions — gateway leans on it heavily; good to understand before agent
+[TODO] Skills — simple, one-way feed into agent; quick win
+[TODO] LLMProvider — agent's core dependency; understand transport before the kernel loop
+[TODO] Memory — agent dependency; frozen snapshot + prefetch patterns
+[TODO] Built-in Tools — what agent dispatches to most often
+[TODO] MCP Servers — external tool extension; builds on tool dispatch mental model
+[TODO] Delegation — builds child agents; makes sense after you know how agent + tools work
+[TODO] Agent — the hub; saves it for last so all its moving parts are already familiar
+[TODO] Cron — autonomous agent runner; natural finale
+
+
+
+3 subsystems missing entirely from analysis/:
+
+LLM Provider layer
+Platform adapters
+Skills system
+1 subsystem missing from mermaid-code/:
+
+Asyncio internals (asyncio.md)
+Format difference: analysis/ is prose-heavy narrative (explains the why), mermaid-code/ is diagram-first (better for visualizing flows).
+
+Breadth: mermaid-code covers 11 subsystems vs ~8 in analysis/.
