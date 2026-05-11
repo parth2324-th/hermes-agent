@@ -17,7 +17,7 @@ Not covered:
 
 
 [DONE] Platform — simplest, just adapters; sets the context for everything above
-[TODO] Gateway — entry point; ties platform + sessions + agent together
+[DONE] Gateway — entry point; ties platform + sessions + agent together
 [TODO] Sessions — gateway leans on it heavily; good to understand before agent
 [TODO] Skills — simple, one-way feed into agent; quick win
 [TODO] LLMProvider — agent's core dependency; understand transport before the kernel loop
